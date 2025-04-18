@@ -17,6 +17,7 @@ import FloatingParticles from './FloatingParticles';
 import H2SMolecules from './H2S_Molecules';
 import HydrothermalVent from './HydrothermalVent';
 import SimulationControls from './SimulationControls';
+import VentSmoke from './VentSmoke';
 
 // Constants for parameters (instead of state)
 const SPHERE_BOBBING_SPEED = 0.3;
@@ -25,7 +26,9 @@ const PARTICLE_DISTRIBUTION_RADIUS = 7.0;
 const MIN_CAMERA_ZOOM_DISTANCE = 1.5; // Keeping zoom limits constant
 const MAX_CAMERA_ZOOM_DISTANCE = 10.0;
 const H2S_SPEED_FACTOR = 0.5; // Relative speed of H2S vs environment particles
-const VENT_POSITION: [number, number, number] = [0, -5, -3]; // Define vent position once
+const VENT_HEIGHT = 6;
+const VENT_POSITION: [number, number, number] = [0, -VENT_HEIGHT / 2, -3]; // Vent group position
+const VENT_TOP_Y = VENT_HEIGHT / 2; // Top Y relative to group center
 
 // Component for the rotating sphere
 interface SphereProps {
@@ -120,6 +123,13 @@ export default function Step0() {
   const showH2S = currentStage >= 2;
   const showCellBoundary = currentStage >= 3; // Boundary appears at stage 3
 
+  // Calculate absolute vent top position for smoke emitter
+  const ventTopAbsPosition: [number, number, number] = [
+    VENT_POSITION[0],
+    VENT_POSITION[1] + VENT_TOP_Y, // Group Y + relative top Y
+    VENT_POSITION[2],
+  ];
+
   return (
     <div
       style={{
@@ -154,6 +164,7 @@ export default function Step0() {
           areaRadius={PARTICLE_DISTRIBUTION_RADIUS}
         />
         {showVent && <HydrothermalVent />}
+        {showVent && <VentSmoke ventTopPosition={ventTopAbsPosition} />}
         {showH2S && (
           <H2SMolecules
             speed={PARTICLE_SPEED * H2S_SPEED_FACTOR}
