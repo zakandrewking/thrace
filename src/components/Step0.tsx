@@ -12,7 +12,7 @@ function Sphere() {
 
   return (
     <mesh ref={meshRef}>
-      <sphereGeometry args={[1, 32, 32]} />
+      <sphereGeometry args={[1, 18, 18]} />
       <meshBasicMaterial color={0x0077ff} wireframe={true} />
     </mesh>
   );
