@@ -20,7 +20,15 @@ function Sphere() {
 
 export default function Step0() {
   return (
-    <div style={{ width: "500px", height: "500px", border: "1px solid grey" }}>
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+      }}
+    >
       <Canvas camera={{ position: [0, 0, 3] }}>
         {" "}
         {/* Set initial camera position */}
