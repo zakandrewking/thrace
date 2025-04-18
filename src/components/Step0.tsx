@@ -3,14 +3,40 @@ import { useCallback, useRef } from 'react';
 import * as THREE from 'three';
 
 import { OrbitControls } from '@react-three/drei';
-import { Canvas, useThree } from '@react-three/fiber';
+import {
+  Canvas,
+  useFrame,
+  useThree,
+} from '@react-three/fiber';
 
+import FloatingParticles from './FloatingParticles';
 import ZoomControls from './ZoomControls';
 
+// --- Configuration Constants ---
+const SPHERE_BOBBING_SPEED = 1;
+const PARTICLE_SPEED = 8;
+const PARTICLE_DISTRIBUTION_RADIUS = 10;
+const MIN_CAMERA_ZOOM_DISTANCE = 1;
+const MAX_CAMERA_ZOOM_DISTANCE = 5;
+// -----------------------------
+
 // Component for the rotating sphere
-function Sphere() {
+interface SphereProps {
+  bobbingSpeed: number;
+}
+
+function Sphere({ bobbingSpeed }: SphereProps) {
   // Ref to access the mesh object
   const meshRef = useRef<THREE.Mesh>(null!);
+
+  // Add useFrame for subtle bobbing
+  useFrame(({ clock }) => {
+    if (meshRef.current) {
+      // Use bobbingSpeed prop
+      meshRef.current.position.y =
+        Math.sin(clock.getElapsedTime() * bobbingSpeed) * 0.05;
+    }
+  });
 
   return (
     <mesh ref={meshRef}>
@@ -24,9 +50,10 @@ function Sphere() {
 interface CameraSetupProps {
   setZoomIn: (fn: () => void) => void;
   setZoomOut: (fn: () => void) => void;
+  minDistance: number; // Add minDistance
 }
 
-function CameraSetup({ setZoomIn, setZoomOut }: CameraSetupProps) {
+function CameraSetup({ setZoomIn, setZoomOut, minDistance }: CameraSetupProps) {
   const { camera } = useThree();
   const zoomFactor = 0.5;
 
@@ -41,9 +68,16 @@ function CameraSetup({ setZoomIn, setZoomOut }: CameraSetupProps) {
   const zoomOut = useCallback(() => {
     const direction = new THREE.Vector3();
     camera.getWorldDirection(direction);
-    camera.position.addScaledVector(direction, -zoomFactor);
-    camera.updateProjectionMatrix();
-  }, [camera]);
+    // Calculate potential new position
+    const potentialPosition = camera.position
+      .clone()
+      .addScaledVector(direction, -zoomFactor);
+    // Check distance from origin (assuming target is origin)
+    if (potentialPosition.length() >= minDistance) {
+      camera.position.copy(potentialPosition);
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, minDistance]); // Add minDistance dependency
 
   // Pass the functions up to the parent using the setters
   setZoomIn(zoomIn);
@@ -71,15 +105,25 @@ export default function Step0() {
         onZoomIn={() => zoomInRef.current()}
         onZoomOut={() => zoomOutRef.current()}
       />
-      <Canvas camera={{ position: [0, 0, 3] }}>
+      <Canvas
+        camera={{ position: [0, 0, 3] }}
+        scene={{ background: new THREE.Color("#87CEEB") }}
+      >
         {" "}
-        {/* Set initial camera position */}
         {/* Ambient light affects all objects in the scene globally */}
         <ambientLight intensity={0.5} />
         {/* Directional light comes from a specific direction */}
         <directionalLight position={[2, 2, 5]} intensity={1} />
-        <Sphere />
-        <OrbitControls enableZoom={true} />
+        <Sphere bobbingSpeed={SPHERE_BOBBING_SPEED} />
+        <FloatingParticles
+          particleSpeed={PARTICLE_SPEED}
+          areaRadius={PARTICLE_DISTRIBUTION_RADIUS}
+        />
+        <OrbitControls
+          enableZoom={true}
+          minDistance={MIN_CAMERA_ZOOM_DISTANCE} // Configure min zoom
+          maxDistance={MAX_CAMERA_ZOOM_DISTANCE} // Configure max zoom
+        />
         <CameraSetup
           setZoomIn={(fn) => {
             zoomInRef.current = fn;
@@ -87,6 +131,7 @@ export default function Step0() {
           setZoomOut={(fn) => {
             zoomOutRef.current = fn;
           }}
+          minDistance={MIN_CAMERA_ZOOM_DISTANCE} // Pass min distance down
         />
       </Canvas>
     </div>
