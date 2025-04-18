@@ -14,7 +14,8 @@ import {
 } from '@react-three/fiber';
 
 import FloatingParticles from './FloatingParticles';
-import FuelMolecules from './FuelMolecules';
+import H2SMolecules from './H2S_Molecules';
+import HydrothermalVent from './HydrothermalVent';
 import SimulationControls from './SimulationControls';
 
 // Constants for parameters (instead of state)
@@ -23,6 +24,8 @@ const PARTICLE_SPEED = 0.8;
 const PARTICLE_DISTRIBUTION_RADIUS = 7.0;
 const MIN_CAMERA_ZOOM_DISTANCE = 1.5; // Keeping zoom limits constant
 const MAX_CAMERA_ZOOM_DISTANCE = 10.0;
+const H2S_SPEED_FACTOR = 0.5; // Relative speed of H2S vs environment particles
+const VENT_POSITION: [number, number, number] = [0, -5, -3]; // Define vent position once
 
 // Component for the rotating sphere
 interface SphereProps {
@@ -105,13 +108,17 @@ function CameraSetup({ setZoomIn, setZoomOut, minDistance }: CameraSetupProps) {
 }
 
 export default function Step0() {
-  // State only for simulation steps
-  const [showBoundary, setShowBoundary] = useState(false);
-  const [showFuel, setShowFuel] = useState(false);
+  // State for simulation stage
+  const [currentStage, setCurrentStage] = useState(0);
 
-  // Refs for zoom functions still needed for CameraSetup
+  // Refs for zoom functions
   const zoomInRef = useRef<() => void>(() => {});
   const zoomOutRef = useRef<() => void>(() => {});
+
+  // Determine element visibility based on stage
+  const showVent = currentStage >= 1;
+  const showH2S = currentStage >= 2;
+  const showCellBoundary = currentStage >= 3; // Boundary appears at stage 3
 
   return (
     <div
@@ -124,40 +131,41 @@ export default function Step0() {
       }}
     >
       <SimulationControls
-        showBoundary={showBoundary}
-        setShowBoundary={setShowBoundary}
-        showFuel={showFuel}
-        setShowFuel={setShowFuel}
+        currentStage={currentStage}
+        setCurrentStage={setCurrentStage}
         onZoomIn={() => zoomInRef.current()}
         onZoomOut={() => zoomOutRef.current()}
       />
       <Canvas
-        camera={{ position: [0, 0, 3] }}
-        scene={{ background: new THREE.Color("#87CEEB") }}
+        camera={{ position: [0, 0, 5] }}
+        scene={{ background: new THREE.Color("#1a2b47") }}
       >
-        {" "}
-        {/* Ambient light affects all objects in the scene globally */}
-        <ambientLight intensity={0.5} />
-        {/* Directional light comes from a specific direction */}
-        <directionalLight position={[2, 2, 5]} intensity={1} />
+        <ambientLight intensity={currentStage > 0 ? 0.5 : 0.2} />
+        <directionalLight
+          position={[2, 2, 5]}
+          intensity={currentStage > 0 ? 1 : 0.3}
+        />
         <Sphere
           bobbingSpeed={SPHERE_BOBBING_SPEED}
-          showBoundary={showBoundary}
+          showBoundary={showCellBoundary}
         />
         <FloatingParticles
           particleSpeed={PARTICLE_SPEED}
           areaRadius={PARTICLE_DISTRIBUTION_RADIUS}
         />
-        {showFuel && (
-          <FuelMolecules
-            speed={PARTICLE_SPEED * 0.8}
-            areaRadius={PARTICLE_DISTRIBUTION_RADIUS}
+        {showVent && <HydrothermalVent />}
+        {showH2S && (
+          <H2SMolecules
+            speed={PARTICLE_SPEED * H2S_SPEED_FACTOR}
+            emissionRadius={PARTICLE_DISTRIBUTION_RADIUS * 0.3}
+            ventPosition={VENT_POSITION}
           />
         )}
         <OrbitControls
           enableZoom={true}
           minDistance={MIN_CAMERA_ZOOM_DISTANCE}
           maxDistance={MAX_CAMERA_ZOOM_DISTANCE}
+          target={[0, 0, 0]}
         />
         <CameraSetup
           setZoomIn={(fn) => {
