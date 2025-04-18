@@ -50,40 +50,43 @@ function Sphere({ bobbingSpeed }: SphereProps) {
 interface CameraSetupProps {
   setZoomIn: (fn: () => void) => void;
   setZoomOut: (fn: () => void) => void;
-  minDistance: number; // Add minDistance
+  minDistance: number;
 }
 
 function CameraSetup({ setZoomIn, setZoomOut, minDistance }: CameraSetupProps) {
   const { camera } = useThree();
-  const zoomFactor = 0.5;
+  const zoomFactor = 1;
 
-  // Define zoom functions using useCallback to ensure stable references
   const zoomIn = useCallback(() => {
-    const direction = new THREE.Vector3();
-    camera.getWorldDirection(direction);
-    camera.position.addScaledVector(direction, zoomFactor);
-    camera.updateProjectionMatrix();
-  }, [camera]); // Recreate if camera instance changes
-
-  const zoomOut = useCallback(() => {
     const direction = new THREE.Vector3();
     camera.getWorldDirection(direction);
     // Calculate potential new position
     const potentialPosition = camera.position
       .clone()
-      .addScaledVector(direction, -zoomFactor);
+      .addScaledVector(direction, zoomFactor);
     // Check distance from origin (assuming target is origin)
     if (potentialPosition.length() >= minDistance) {
       camera.position.copy(potentialPosition);
       camera.updateProjectionMatrix();
     }
-  }, [camera, minDistance]); // Add minDistance dependency
+  }, [camera, minDistance]);
 
-  // Pass the functions up to the parent using the setters
+  const zoomOut = useCallback(() => {
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+    const potentialPosition = camera.position
+      .clone()
+      .addScaledVector(direction, -zoomFactor);
+    if (potentialPosition.length() >= minDistance) {
+      camera.position.copy(potentialPosition);
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, minDistance]);
+
   setZoomIn(zoomIn);
   setZoomOut(zoomOut);
 
-  return null; // This component doesn't render anything itself
+  return null;
 }
 
 export default function Step0() {
