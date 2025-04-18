@@ -1,4 +1,8 @@
-import { useCallback, useRef } from 'react';
+import {
+  useCallback,
+  useRef,
+  useState,
+} from 'react';
 
 import * as THREE from 'three';
 
@@ -10,39 +14,52 @@ import {
 } from '@react-three/fiber';
 
 import FloatingParticles from './FloatingParticles';
-import ZoomControls from './ZoomControls';
+import FuelMolecules from './FuelMolecules';
+import SimulationControls from './SimulationControls';
 
-// --- Configuration Constants ---
-const SPHERE_BOBBING_SPEED = 1;
-const PARTICLE_SPEED = 8;
-const PARTICLE_DISTRIBUTION_RADIUS = 10;
-const MIN_CAMERA_ZOOM_DISTANCE = 1;
-const MAX_CAMERA_ZOOM_DISTANCE = 5;
-// -----------------------------
+// Constants for parameters (instead of state)
+const SPHERE_BOBBING_SPEED = 0.3;
+const PARTICLE_SPEED = 0.8;
+const PARTICLE_DISTRIBUTION_RADIUS = 7.0;
+const MIN_CAMERA_ZOOM_DISTANCE = 1.5; // Keeping zoom limits constant
+const MAX_CAMERA_ZOOM_DISTANCE = 10.0;
 
 // Component for the rotating sphere
 interface SphereProps {
   bobbingSpeed: number;
+  showBoundary: boolean;
 }
 
-function Sphere({ bobbingSpeed }: SphereProps) {
-  // Ref to access the mesh object
-  const meshRef = useRef<THREE.Mesh>(null!);
+function Sphere({ bobbingSpeed, showBoundary }: SphereProps) {
+  const groupRef = useRef<THREE.Group>(null!);
 
-  // Add useFrame for subtle bobbing
   useFrame(({ clock }) => {
-    if (meshRef.current) {
-      // Use bobbingSpeed prop
-      meshRef.current.position.y =
+    if (groupRef.current) {
+      groupRef.current.position.y =
         Math.sin(clock.getElapsedTime() * bobbingSpeed) * 0.05;
     }
   });
 
   return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[1, 10, 10]} />
-      <meshBasicMaterial color={0x0077ff} wireframe={true} />
-    </mesh>
+    <group ref={groupRef}>
+      <mesh>
+        <sphereGeometry args={[1, 10, 10]} />
+        <meshBasicMaterial color={0x0077ff} wireframe={true} />
+      </mesh>
+
+      {showBoundary && (
+        <mesh>
+          <sphereGeometry args={[1.1, 16, 16]} />
+          <meshStandardMaterial
+            color="#ffffff"
+            transparent
+            opacity={0.2}
+            roughness={0.3}
+            metalness={0.1}
+          />
+        </mesh>
+      )}
+    </group>
   );
 }
 
@@ -60,11 +77,9 @@ function CameraSetup({ setZoomIn, setZoomOut, minDistance }: CameraSetupProps) {
   const zoomIn = useCallback(() => {
     const direction = new THREE.Vector3();
     camera.getWorldDirection(direction);
-    // Calculate potential new position
     const potentialPosition = camera.position
       .clone()
       .addScaledVector(direction, zoomFactor);
-    // Check distance from origin (assuming target is origin)
     if (potentialPosition.length() >= minDistance) {
       camera.position.copy(potentialPosition);
       camera.updateProjectionMatrix();
@@ -90,7 +105,11 @@ function CameraSetup({ setZoomIn, setZoomOut, minDistance }: CameraSetupProps) {
 }
 
 export default function Step0() {
-  // Refs to hold the zoom functions
+  // State only for simulation steps
+  const [showBoundary, setShowBoundary] = useState(false);
+  const [showFuel, setShowFuel] = useState(false);
+
+  // Refs for zoom functions still needed for CameraSetup
   const zoomInRef = useRef<() => void>(() => {});
   const zoomOutRef = useRef<() => void>(() => {});
 
@@ -104,7 +123,11 @@ export default function Step0() {
         height: "100vh",
       }}
     >
-      <ZoomControls
+      <SimulationControls
+        showBoundary={showBoundary}
+        setShowBoundary={setShowBoundary}
+        showFuel={showFuel}
+        setShowFuel={setShowFuel}
         onZoomIn={() => zoomInRef.current()}
         onZoomOut={() => zoomOutRef.current()}
       />
@@ -117,15 +140,24 @@ export default function Step0() {
         <ambientLight intensity={0.5} />
         {/* Directional light comes from a specific direction */}
         <directionalLight position={[2, 2, 5]} intensity={1} />
-        <Sphere bobbingSpeed={SPHERE_BOBBING_SPEED} />
+        <Sphere
+          bobbingSpeed={SPHERE_BOBBING_SPEED}
+          showBoundary={showBoundary}
+        />
         <FloatingParticles
           particleSpeed={PARTICLE_SPEED}
           areaRadius={PARTICLE_DISTRIBUTION_RADIUS}
         />
+        {showFuel && (
+          <FuelMolecules
+            speed={PARTICLE_SPEED * 0.8}
+            areaRadius={PARTICLE_DISTRIBUTION_RADIUS}
+          />
+        )}
         <OrbitControls
           enableZoom={true}
-          minDistance={MIN_CAMERA_ZOOM_DISTANCE} // Configure min zoom
-          maxDistance={MAX_CAMERA_ZOOM_DISTANCE} // Configure max zoom
+          minDistance={MIN_CAMERA_ZOOM_DISTANCE}
+          maxDistance={MAX_CAMERA_ZOOM_DISTANCE}
         />
         <CameraSetup
           setZoomIn={(fn) => {
@@ -134,7 +166,7 @@ export default function Step0() {
           setZoomOut={(fn) => {
             zoomOutRef.current = fn;
           }}
-          minDistance={MIN_CAMERA_ZOOM_DISTANCE} // Pass min distance down
+          minDistance={MIN_CAMERA_ZOOM_DISTANCE}
         />
       </Canvas>
     </div>
